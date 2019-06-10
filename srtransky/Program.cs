@@ -35,6 +35,8 @@ namespace srtransky
                 else
                 {
                     downloader.Stop();
+
+                    Console.WriteLine("FIND HLS: " + hls);
                 }
                 
             });

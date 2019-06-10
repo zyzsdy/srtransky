@@ -43,11 +43,11 @@ namespace srtransky
             return HlsUrl;
         }
 
-        public void Init()
+        public string HTTPGet(string url)
         {
             HttpClient httpClient;
 
-            if(Proxy == null)
+            if (Proxy == null)
             {
                 httpClient = new HttpClient()
                 {
@@ -60,9 +60,50 @@ namespace srtransky
                 {
                     UserAgent = UA
                 };
-                Console.WriteLine("Init: Use proxy " + Proxy);
+                Console.WriteLine("INFO: Use proxy " + Proxy);
             }
 
+            try
+            {
+                return httpClient.Get(url);
+            }
+            catch
+            {
+                throw;
+            }
+        }
+
+        public void Init()
+        {
+            try
+            {
+                var json = ParseRoomData();
+                var isLive = json["is_live"].Value<int>();
+                BroadcastKey = json["broadcast_key"].ToString();
+                BroadcastHost = json["broadcast_host"].ToString();
+
+                if (isLive == 0)
+                {
+                    Console.WriteLine("Init: Live stopped.");
+                }
+                else
+                {
+                    Console.WriteLine("Init: Live broadcast.");
+                    StartGetHls(json);
+                }
+
+                Console.WriteLine("Init: Broadcast Key: " + BroadcastKey);
+
+                StartWebSocket();
+            }
+            catch
+            {
+                return;
+            }
+        }
+
+        private JObject ParseRoomData()
+        {
             string roomHomePage = "https://www.showroom-live.com/" + RoomName;
 
             string roomApi = "https://www.showroom-live.com/api/room/status?room_url_key=" + RoomName;
@@ -71,7 +112,7 @@ namespace srtransky
 
             try
             {
-                var homePageString = httpClient.Get(roomHomePage);
+                var homePageString = HTTPGet(roomHomePage);
                 var re = Regex.Matches(homePageString, @"<script id=""js-live-data"" data-json=""(.+?)""></script>");
                 string jsonString = null;
                 foreach (Match matched in re)
@@ -82,35 +123,14 @@ namespace srtransky
                 jsonString = jsonString.Replace("&quot;", "\"");
 
                 var json = JObject.Parse(jsonString);
-                // TODO: debug
-                // Console.WriteLine(json.ToString());
 
-                ParseRoomData(json);
+                return json;
             }
             catch (Exception e)
             {
                 Console.WriteLine("Error: " + e.Message);
+                throw;
             }
-        }
-
-        private void ParseRoomData(JObject json)
-        {
-            var isLive = json["is_live"].Value<int>();
-            BroadcastKey = json["broadcast_key"].ToString();
-            BroadcastHost = json["broadcast_host"].ToString();
-
-            if (isLive == 0)
-            {
-                Console.WriteLine("Init: Live stopped.");
-            }
-            else
-            {
-                Console.WriteLine("Init: Live broadcast.");
-            }
-
-            Console.WriteLine("Init: Broadcast Key: " + BroadcastKey);
-
-            StartWebSocket();
         }
 
         private void StartWebSocket()
@@ -180,6 +200,11 @@ namespace srtransky
                             Console.WriteLine("INFO: Live stop!");
                             Stop();
                             break;
+                        case 104:
+                            Console.WriteLine("INFO: Live start!");
+                            var json = ParseRoomData();
+                            StartGetHls(json);
+                            break;
                         default:
                             Console.WriteLine("Type: " + msgType);
                             break;
@@ -190,6 +215,15 @@ namespace srtransky
                     Console.WriteLine("Error: " + ex.Message);
                 }
             }
+        }
+
+        private async void StartGetHls(JObject json)
+        {
+            await Task.Run(() =>
+            {
+                HlsUrl = (from u in (json["streaming_url_list"] as JArray) orderby u["quality"] select u["url"].ToString()).ToList()[0];
+                HlsParsedEvent.Set();
+            });
         }
     }
 }
