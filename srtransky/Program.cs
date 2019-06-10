@@ -25,7 +25,18 @@ namespace srtransky
         {
             Parser.Default.ParseArguments<CmdOptions>(args).WithParsed(o =>
             {
-                new Downloader(o.RoomName, o.OutputFile, o.Proxy).Init();
+                var downloader = new Downloader(o.RoomName, o.OutputFile, o.Proxy);
+                downloader.Init();
+                var hls = downloader.WaitForHls();
+                if(hls == null)
+                {
+                    Console.WriteLine("Unable to get hls address.");
+                }
+                else
+                {
+                    downloader.Stop();
+                }
+                
             });
         }
     }
