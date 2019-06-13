@@ -169,18 +169,25 @@ namespace BetterHttpClient
 
         protected override WebResponse GetWebResponse(WebRequest request)
         {
-            var response = base.GetWebResponse(request);
             try
             {
-                string setCookies = response.Headers["Set-Cookie"];
-                Cookies.SetCookies(request.RequestUri, setCookies);
+                var response = base.GetWebResponse(request);
+                try
+                {
+                    string setCookies = response.Headers["Set-Cookie"];
+                    Cookies.SetCookies(request.RequestUri, setCookies);
+                }
+                catch (Exception)
+                {
+
+                }
+
+                return response;
             }
-            catch (Exception)
+            catch
             {
-
+                return null;
             }
-
-            return response;
         }
         /// <summary>
         /// Execute GET request.

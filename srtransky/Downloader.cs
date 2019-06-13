@@ -11,13 +11,16 @@ using System.Threading;
 
 namespace srtransky
 {
+    public delegate void HlsUrlGetEventHandler(object sender, string hlsUrl);
     class Downloader
     {
         const string UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36";
 
         private string RoomName;
-        private string OutputFile;
-        private string Proxy;
+        public string OutputFile { get; }
+        public string Proxy { get; }
+        public int Threads { get; }
+        public int Retries { get; }
         private string BroadcastKey;
         private string BroadcastHost;
         private bool Running;
@@ -25,11 +28,15 @@ namespace srtransky
         private AutoResetEvent HlsParsedEvent = new AutoResetEvent(false);
         private WebSocket wsclient = null;
 
-        public Downloader(string name, string outputFile, string proxy)
+        public event HlsUrlGetEventHandler OnHlsUrlGet;
+
+        public Downloader(string name, string outputFile, string proxy, int threads, int retries)
         {
             RoomName = name;
             OutputFile = outputFile;
             Proxy = proxy;
+            Threads = threads;
+            Retries = retries;
             Running = false;
         }
 
@@ -221,9 +228,34 @@ namespace srtransky
         {
             await Task.Run(() =>
             {
-                HlsUrl = (from u in (json["streaming_url_list"] as JArray) orderby u["quality"] select u["url"].ToString()).ToList()[0];
-                HlsParsedEvent.Set();
+                var tempHlsUrl = (from u in (json["streaming_url_list"] as JArray) orderby u["quality"] select u["url"].ToString()).ToList()[0];
+                HlsUrl = HlsCheck(tempHlsUrl);
+
+                if(HlsUrl != null)
+                {
+                    OnHlsUrlGet?.Invoke(this, HlsUrl);
+                    HlsParsedEvent.Set();
+                }
             });
+        }
+
+        private string HlsCheck(string hlsUrl)
+        {
+            var hlsString = HTTPGet(hlsUrl);
+            var re = Regex.Matches(hlsString, @"^.+\.m3u8$", RegexOptions.Multiline);
+            string hlsPlaylist = null;
+            foreach (Match matched in re)
+            {
+                hlsPlaylist = matched.ToString();
+                break;
+            }
+            if(hlsPlaylist == null)
+            {
+                Console.WriteLine("ERROR: Can't parse any m3u8 playlist.");
+                return null;
+            }
+            var newHls = new Uri(new Uri(hlsUrl), hlsPlaylist).ToString();
+            return newHls;
         }
     }
 }
