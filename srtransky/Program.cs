@@ -24,6 +24,9 @@ namespace srtransky
 
         [Option('r', "retries", Required = false, HelpText = "Retries count of Minyami", Default = 999)]
         public int Retries { get; set; }
+
+        [Option("rtmpdump", Required = false, HelpText = "Download with rtmpdump.", Default = false)]
+        public bool UseRtmpdump { get; set; }
     }
     class Program
     {
@@ -31,10 +34,11 @@ namespace srtransky
         {
             Parser.Default.ParseArguments<CmdOptions>(args).WithParsed(o =>
             {
-                var downloader = new Downloader(o.RoomName, o.OutputFile, o.Proxy, o.Thread, o.Retries);
+                var downloader = new Downloader(o.RoomName, o.OutputFile, o.Proxy, o.Thread, o.Retries, o.UseRtmpdump);
                 downloader.OnHlsUrlGet += Downloader_OnHlsUrlGet;
+                downloader.OnRtmpUrlGet += Downloader_OnRtmpUrlGet;
                 downloader.Init();
-                var hls = downloader.WaitForHls();
+                var hls = downloader.WaitForUrl();
                 if(hls == null)
                 {
                     Console.WriteLine("Unable to get hls address.");
@@ -42,12 +46,37 @@ namespace srtransky
                 else
                 {
                     downloader.Stop();
-                    Console.WriteLine("FIND HLS! Program stop.");
+                    Console.WriteLine("FIND Streaming Url! Program stop.");
                 }
                 
             });
         }
 
+        private static async void Downloader_OnRtmpUrlGet(object sender, string rtmp_url, string streaming_key)
+        {
+            await Task.Run(() => {
+                Console.WriteLine("INFO: RTMP URL: " + rtmp_url + " KEY: " + streaming_key);
+                var downloader = sender as Downloader;
+                Console.WriteLine("Call rtmpdump...");
+                var rtmpdumpCmd = $" -r \"{rtmp_url}\" -a \"liveedge\" -f \"WIN 17,0,0,169\"";
+                rtmpdumpCmd += $" -W \"https://www.showroom-live.com/assets/swf/v3/ShowRoomLive.swf\" -p \"" + "https://www.showroom-live.com/" + downloader.RoomName + "\" --live -y \"" + streaming_key + "\"";
+                rtmpdumpCmd += " --resume -e --timeout 120 -R";
+                if (downloader.Proxy != null)
+                {
+                    rtmpdumpCmd += $" --socks \"{downloader.Proxy}\"";
+                }
+                rtmpdumpCmd += $" -o \"{downloader.OutputFile}\"";
+                try
+                {
+                    System.Diagnostics.Process.Start("rtmpdump.exe", rtmpdumpCmd);
+                }
+                catch (System.ComponentModel.Win32Exception e)
+                {
+                    Console.WriteLine("ERROR: " + e.ToString());
+                }
+            }
+            );
+        }
         private static async void Downloader_OnHlsUrlGet(object sender, string hlsUrl)
         {
             await Task.Run(() =>
