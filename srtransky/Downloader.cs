@@ -12,7 +12,7 @@ using System.Threading;
 namespace srtransky
 {
     public delegate void HlsUrlGetEventHandler(object sender, string hlsUrl);
-    public delegate void RtmpUrlGetEventHandler(object sender, string rtmpUrl, string streaming_key);
+    public delegate void RtmpUrlGetEventHandler(object sender, string rtmpUrl, string streamingKey);
     class Downloader
     {
         const string UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36";
@@ -246,11 +246,11 @@ namespace srtransky
         private async void StartGetRtmp(JObject json)
         {
             await Task.Run(() => {
-                var rtmp_url = (from u in (json["streaming_url_list_rtmp"] as JArray) orderby u["quality"] select u["url"].ToString()).ToList()[0];
-                var streaming_key = json["streaming_name_rtmp"].ToString();
-                if (rtmp_url != null)
+                var rtmpUrl = (from u in (json["streaming_url_list_rtmp"] as JArray) orderby u["quality"] select u["url"].ToString()).ToList()[0];
+                var streamingKey = json["streaming_name_rtmp"].ToString();
+                if (rtmpUrl != null)
                 {
-                    OnRtmpUrlGet?.Invoke(this, rtmp_url, streaming_key);
+                    OnRtmpUrlGet?.Invoke(this, rtmpUrl, streamingKey);
                     HlsParsedEvent.Set();
                 }
             });
