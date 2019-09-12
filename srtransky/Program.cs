@@ -60,7 +60,7 @@ namespace srtransky
                 Console.WriteLine("Call rtmpdump...");
                 var rtmpdumpCmd = $" -r \"{rtmpUrl}\" -a \"liveedge\" -f \"WIN 17,0,0,169\"";
                 rtmpdumpCmd += $" -W \"https://www.showroom-live.com/assets/swf/v3/ShowRoomLive.swf\" -p \"" + "https://www.showroom-live.com/" + downloader.RoomName + "\" --live -y \"" + streamingKey + "\"";
-                rtmpdumpCmd += " --resume -e --timeout 120 -R";
+                rtmpdumpCmd += " --timeout 120 -R";
                 if (downloader.Proxy != null)
                 {
                     rtmpdumpCmd += $" --socks \"{downloader.Proxy}\"";
