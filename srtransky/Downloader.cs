@@ -150,10 +150,6 @@ namespace srtransky
             var wsserverUri = "wss://" + BroadcastHost;
 
             wsclient = new WebSocket(wsserverUri);
-            if (Proxy != null)
-            {
-                wsclient.SetProxy("http://" + Proxy, null, null);
-            }
             wsclient.OnMessage += Ws_OnMessage;
             wsclient.OnOpen += (s, e) =>
             {
