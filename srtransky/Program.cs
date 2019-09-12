@@ -52,14 +52,14 @@ namespace srtransky
             });
         }
 
-        private static async void Downloader_OnRtmpUrlGet(object sender, string rtmp_url, string streaming_key)
+        private static async void Downloader_OnRtmpUrlGet(object sender, string rtmpUrl, string streamingKey)
         {
             await Task.Run(() => {
-                Console.WriteLine("INFO: RTMP URL: " + rtmp_url + " KEY: " + streaming_key);
+                Console.WriteLine("INFO: RTMP URL: " + rtmpUrl + " KEY: " + streamingKey);
                 var downloader = sender as Downloader;
                 Console.WriteLine("Call rtmpdump...");
-                var rtmpdumpCmd = $" -r \"{rtmp_url}\" -a \"liveedge\" -f \"WIN 17,0,0,169\"";
-                rtmpdumpCmd += $" -W \"https://www.showroom-live.com/assets/swf/v3/ShowRoomLive.swf\" -p \"" + "https://www.showroom-live.com/" + downloader.RoomName + "\" --live -y \"" + streaming_key + "\"";
+                var rtmpdumpCmd = $" -r \"{rtmpUrl}\" -a \"liveedge\" -f \"WIN 17,0,0,169\"";
+                rtmpdumpCmd += $" -W \"https://www.showroom-live.com/assets/swf/v3/ShowRoomLive.swf\" -p \"" + "https://www.showroom-live.com/" + downloader.RoomName + "\" --live -y \"" + streamingKey + "\"";
                 rtmpdumpCmd += " --resume -e --timeout 120 -R";
                 if (downloader.Proxy != null)
                 {
