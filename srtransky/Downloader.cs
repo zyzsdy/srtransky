@@ -26,8 +26,8 @@ namespace srtransky
         private string BroadcastKey;
         private string BroadcastHost;
         private bool Running;
-        private string HlsUrl = null;
-        private AutoResetEvent HlsParsedEvent = new AutoResetEvent(false);
+        private string Url = null;
+        private AutoResetEvent UrlParsedEvent = new AutoResetEvent(false);
         private WebSocket wsclient = null;
 
         public event HlsUrlGetEventHandler OnHlsUrlGet;
@@ -47,10 +47,10 @@ namespace srtransky
         {
             Task.Run(() =>
             {
-                HlsParsedEvent.WaitOne();
+                UrlParsedEvent.WaitOne();
             }).Wait();
 
-            return HlsUrl;
+            return Url;
         }
 
         public string HTTPGet(string url)
@@ -180,7 +180,7 @@ namespace srtransky
             WSSend("QUIT");
             wsclient?.Close();
 
-            HlsParsedEvent.Set();
+            UrlParsedEvent.Set();
         }
 
         private async void StartHeartBeat()
@@ -233,12 +233,12 @@ namespace srtransky
             await Task.Run(() =>
             {
                 var tempHlsUrl = (from u in (json["streaming_url_list"] as JArray) orderby u["quality"] select u["url"].ToString()).ToList()[0];
-                HlsUrl = HlsCheck(tempHlsUrl);
+                Url = HlsCheck(tempHlsUrl);
 
-                if(HlsUrl != null)
+                if(Url != null)
                 {
-                    OnHlsUrlGet?.Invoke(this, HlsUrl);
-                    HlsParsedEvent.Set();
+                    OnHlsUrlGet?.Invoke(this, Url);
+                    UrlParsedEvent.Set();
                 }
             });
         }
@@ -251,7 +251,7 @@ namespace srtransky
                 if (rtmpUrl != null)
                 {
                     OnRtmpUrlGet?.Invoke(this, rtmpUrl, streamingKey);
-                    HlsParsedEvent.Set();
+                    UrlParsedEvent.Set();
                 }
             });
         }

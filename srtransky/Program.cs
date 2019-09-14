@@ -38,10 +38,10 @@ namespace srtransky
                 downloader.OnHlsUrlGet += Downloader_OnHlsUrlGet;
                 downloader.OnRtmpUrlGet += Downloader_OnRtmpUrlGet;
                 downloader.Init();
-                var hls = downloader.WaitForUrl();
-                if(hls == null)
+                var url = downloader.WaitForUrl();
+                if(url == null)
                 {
-                    Console.WriteLine("Unable to get hls address.");
+                    Console.WriteLine("Unable to get streaming address.");
                 }
                 else
                 {
@@ -66,6 +66,7 @@ namespace srtransky
                     rtmpdumpCmd += $" --socks \"{downloader.Proxy}\"";
                 }
                 rtmpdumpCmd += $" -o \"{downloader.OutputFile}\"";
+                Console.WriteLine("INFO: Use command: rtmpdump " + rtmpdumpCmd);
                 try
                 {
                     System.Diagnostics.Process.Start("rtmpdump.exe", rtmpdumpCmd);
