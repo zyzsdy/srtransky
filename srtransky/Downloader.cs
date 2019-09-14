@@ -248,6 +248,7 @@ namespace srtransky
             await Task.Run(() => {
                 var rtmpUrl = (from u in (json["streaming_url_list_rtmp"] as JArray) orderby u["quality"] select u["url"].ToString()).ToList()[0];
                 var streamingKey = json["streaming_name_rtmp"].ToString();
+                Url = rtmpUrl;
                 if (rtmpUrl != null)
                 {
                     OnRtmpUrlGet?.Invoke(this, rtmpUrl, streamingKey);
