@@ -12,25 +12,27 @@ using System.Threading;
 namespace srtransky
 {
     public delegate void HlsUrlGetEventHandler(object sender, string hlsUrl);
+    public delegate void RtmpUrlGetEventHandler(object sender, string rtmpUrl, string streamingKey);
     class Downloader
     {
         const string UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36";
 
-        private string RoomName;
+        public string RoomName { get; }
         public string OutputFile { get; }
         public string Proxy { get; }
         public int Threads { get; }
         public int Retries { get; }
+        private bool UseRtmpdump { get; }
         private string BroadcastKey;
         private string BroadcastHost;
         private bool Running;
-        private string HlsUrl = null;
-        private AutoResetEvent HlsParsedEvent = new AutoResetEvent(false);
+        private string Url = null;
+        private AutoResetEvent UrlParsedEvent = new AutoResetEvent(false);
         private WebSocket wsclient = null;
 
         public event HlsUrlGetEventHandler OnHlsUrlGet;
-
-        public Downloader(string name, string outputFile, string proxy, int threads, int retries)
+        public event RtmpUrlGetEventHandler OnRtmpUrlGet;
+        public Downloader(string name, string outputFile, string proxy, int threads, int retries, bool useRtmpdump)
         {
             RoomName = name;
             OutputFile = outputFile;
@@ -38,16 +40,17 @@ namespace srtransky
             Threads = threads;
             Retries = retries;
             Running = false;
+            UseRtmpdump = useRtmpdump;
         }
 
-        public string WaitForHls()
+        public string WaitForUrl()
         {
             Task.Run(() =>
             {
-                HlsParsedEvent.WaitOne();
+                UrlParsedEvent.WaitOne();
             }).Wait();
 
-            return HlsUrl;
+            return Url;
         }
 
         public string HTTPGet(string url)
@@ -96,7 +99,7 @@ namespace srtransky
                 else
                 {
                     Console.WriteLine("Init: Live broadcast.");
-                    StartGetHls(json);
+                    StartGetUrl(json);
                 }
 
                 Console.WriteLine("Init: Broadcast Key: " + BroadcastKey);
@@ -108,6 +111,7 @@ namespace srtransky
                 return;
             }
         }
+
 
         private JObject ParseRoomData()
         {
@@ -176,7 +180,7 @@ namespace srtransky
             WSSend("QUIT");
             wsclient?.Close();
 
-            HlsParsedEvent.Set();
+            UrlParsedEvent.Set();
         }
 
         private async void StartHeartBeat()
@@ -210,7 +214,7 @@ namespace srtransky
                         case 104:
                             Console.WriteLine("INFO: Live start!");
                             var json = ParseRoomData();
-                            StartGetHls(json);
+                            StartGetUrl(json);
                             break;
                         default:
                             Console.WriteLine("Type: " + msgType);
@@ -229,12 +233,26 @@ namespace srtransky
             await Task.Run(() =>
             {
                 var tempHlsUrl = (from u in (json["streaming_url_list"] as JArray) orderby u["quality"] select u["url"].ToString()).ToList()[0];
-                HlsUrl = HlsCheck(tempHlsUrl);
+                Url = HlsCheck(tempHlsUrl);
 
-                if(HlsUrl != null)
+                if(Url != null)
                 {
-                    OnHlsUrlGet?.Invoke(this, HlsUrl);
-                    HlsParsedEvent.Set();
+                    OnHlsUrlGet?.Invoke(this, Url);
+                    UrlParsedEvent.Set();
+                }
+            });
+        }
+
+        private async void StartGetRtmp(JObject json)
+        {
+            await Task.Run(() => {
+                var rtmpUrl = (from u in (json["streaming_url_list_rtmp"] as JArray) orderby u["quality"] select u["url"].ToString()).ToList()[0];
+                var streamingKey = json["streaming_name_rtmp"].ToString();
+                Url = rtmpUrl;
+                if (rtmpUrl != null)
+                {
+                    OnRtmpUrlGet?.Invoke(this, rtmpUrl, streamingKey);
+                    UrlParsedEvent.Set();
                 }
             });
         }
@@ -256,6 +274,18 @@ namespace srtransky
             }
             var newHls = new Uri(new Uri(hlsUrl), hlsPlaylist).ToString();
             return newHls;
+        }
+
+        private void StartGetUrl(JObject json)
+        {
+            if (UseRtmpdump)
+            {
+                StartGetRtmp(json);
+            }
+            else
+            {
+                StartGetHls(json);
+            }
         }
     }
 }
