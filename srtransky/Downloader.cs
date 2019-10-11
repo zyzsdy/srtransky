@@ -91,7 +91,7 @@ namespace srtransky
                 var isLive = json["is_live"].Value<int>();
                 BroadcastKey = json["broadcast_key"].ToString();
                 BroadcastHost = json["broadcast_host"].ToString();
-
+                var roomId = json["room_id"].Value<int>();
                 if (isLive == 0)
                 {
                     Console.WriteLine("Init: Live stopped.");
@@ -99,7 +99,8 @@ namespace srtransky
                 else
                 {
                     Console.WriteLine("Init: Live broadcast.");
-                    StartGetUrl(json);
+                    var streamingJson = GetStreamingUrl(roomId);
+                    StartGetUrl(streamingJson);
                 }
 
                 Console.WriteLine("Init: Broadcast Key: " + BroadcastKey);
@@ -123,21 +124,30 @@ namespace srtransky
 
             try
             {
-                var homePageString = HTTPGet(roomHomePage);
-                var re = Regex.Matches(homePageString, @"<script id=""js-live-data"" data-json=""(.+?)""></script>");
-                string jsonString = null;
-                foreach (Match matched in re)
-                {
-                    jsonString = matched.Groups[1].ToString();
-                    break;
-                }
-                jsonString = jsonString.Replace("&quot;", "\"");
+                var roomApiString = HTTPGet(roomApi);
 
-                var json = JObject.Parse(jsonString);
+                var json = JObject.Parse(roomApiString);
 
                 return json;
             }
             catch (Exception e)
+            {
+                Console.WriteLine("Error: " + e.Message);
+                throw;
+            }
+        }
+
+        private JObject GetStreamingUrl(int RoomId)
+        {
+            string StreamingApiUrl = "https://www.showroom-live.com/api/live/streaming_url?room_id=" + RoomId + "&ignore_low_stream=1";
+            try
+            {
+                var StreamingApiString = HTTPGet(StreamingApiUrl);
+                var json = JObject.Parse(StreamingApiString);
+
+                return json;
+            } 
+            catch(Exception e)
             {
                 Console.WriteLine("Error: " + e.Message);
                 throw;
@@ -232,7 +242,7 @@ namespace srtransky
         {
             await Task.Run(() =>
             {
-                var tempHlsUrl = (from u in (json["streaming_url_list"] as JArray) orderby u["quality"] select u["url"].ToString()).ToList()[0];
+                var tempHlsUrl = (from u in (json["streaming_url_list"] as JArray) where u["type"].ToString() == "hls" orderby u["quality"] select u["url"].ToString()).ToList()[0];
                 Url = HlsCheck(tempHlsUrl);
 
                 if(Url != null)
@@ -246,8 +256,8 @@ namespace srtransky
         private async void StartGetRtmp(JObject json)
         {
             await Task.Run(() => {
-                var rtmpUrl = (from u in (json["streaming_url_list_rtmp"] as JArray) orderby u["quality"] select u["url"].ToString()).ToList()[0];
-                var streamingKey = json["streaming_name_rtmp"].ToString();
+                var rtmpUrl = (from u in (json["streaming_url_list"] as JArray) where u["type"].ToString() == "rtmp" orderby u["quality"] select u["url"].ToString()).ToList()[0];
+                var streamingKey = (from u in (json["streaming_url_list"] as JArray) where u["type"].ToString() == "rtmp" orderby u["quality"] select u["stream_name"].ToString()).ToList()[0];
                 Url = rtmpUrl;
                 if (rtmpUrl != null)
                 {
