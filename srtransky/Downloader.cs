@@ -27,6 +27,7 @@ namespace srtransky
         private string BroadcastHost;
         private bool Running;
         private string Url = null;
+        private int RoomId;
         private AutoResetEvent UrlParsedEvent = new AutoResetEvent(false);
         private WebSocket wsclient = null;
 
@@ -91,7 +92,7 @@ namespace srtransky
                 var isLive = json["is_live"].Value<int>();
                 BroadcastKey = json["broadcast_key"].ToString();
                 BroadcastHost = json["broadcast_host"].ToString();
-                var roomId = json["room_id"].Value<int>();
+                RoomId = json["room_id"].Value<int>();
                 if (isLive == 0)
                 {
                     Console.WriteLine("Init: Live stopped.");
@@ -99,7 +100,7 @@ namespace srtransky
                 else
                 {
                     Console.WriteLine("Init: Live broadcast.");
-                    var streamingJson = GetStreamingUrl(roomId);
+                    var streamingJson = GetStreamingUrl();
                     StartGetUrl(streamingJson);
                 }
 
@@ -137,7 +138,7 @@ namespace srtransky
             }
         }
 
-        private JObject GetStreamingUrl(int RoomId)
+        private JObject GetStreamingUrl()
         {
             string StreamingApiUrl = "https://www.showroom-live.com/api/live/streaming_url?room_id=" + RoomId + "&ignore_low_stream=1";
             try
@@ -223,7 +224,7 @@ namespace srtransky
                             break;
                         case 104:
                             Console.WriteLine("INFO: Live start!");
-                            var json = ParseRoomData();
+                            var json = GetStreamingUrl();
                             StartGetUrl(json);
                             break;
                         default:
