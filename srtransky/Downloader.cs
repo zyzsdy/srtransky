@@ -140,7 +140,7 @@ namespace srtransky
 
         private JObject GetStreamingUrl()
         {
-            string StreamingApiUrl = "https://www.showroom-live.com/api/live/streaming_url?room_id=" + RoomId + "&ignore_low_stream=1";
+            string StreamingApiUrl = "https://www.showroom-live.com/api/live/streaming_url?room_id=" + RoomId.ToString() + "&ignore_low_stream=1";
             try
             {
                 var StreamingApiString = HTTPGet(StreamingApiUrl);
