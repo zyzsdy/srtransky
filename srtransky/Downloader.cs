@@ -280,8 +280,7 @@ namespace srtransky
             }
             if(hlsPlaylist == null)
             {
-                Console.WriteLine("ERROR: Can't parse any m3u8 playlist.");
-                return null;
+                return hlsUrl;
             }
             var newHls = new Uri(new Uri(hlsUrl), hlsPlaylist).ToString();
             return newHls;
