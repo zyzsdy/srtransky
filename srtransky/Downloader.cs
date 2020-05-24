@@ -270,20 +270,16 @@ namespace srtransky
 
         private string HlsCheck(string hlsUrl)
         {
-            var hlsString = HTTPGet(hlsUrl);
-            var re = Regex.Matches(hlsString, @"^.+\.m3u8$", RegexOptions.Multiline);
-            string hlsPlaylist = null;
-            foreach (Match matched in re)
-            {
-                hlsPlaylist = matched.ToString();
-                break;
+            bool isHls = false;
+            while (!isHls) {
+                var hlsString = HTTPGet(hlsUrl);
+                var re = new Regex(@"^.+\.ts", RegexOptions.Multiline);
+                if (re.IsMatch(hlsString))
+                {
+                    isHls = true;
+                }
             }
-            if(hlsPlaylist == null)
-            {
-                return hlsUrl;
-            }
-            var newHls = new Uri(new Uri(hlsUrl), hlsPlaylist).ToString();
-            return newHls;
+            return hlsUrl;
         }
 
         private void StartGetUrl(JObject json)
