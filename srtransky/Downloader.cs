@@ -147,8 +147,8 @@ namespace srtransky
                 var json = JObject.Parse(StreamingApiString);
 
                 return json;
-            } 
-            catch(Exception e)
+            }
+            catch (Exception e)
             {
                 Console.WriteLine("Error: " + e.Message);
                 throw;
@@ -241,12 +241,12 @@ namespace srtransky
 
         private async void StartGetHls(JObject json)
         {
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
                 var tempHlsUrl = (from u in (json["streaming_url_list"] as JArray) where u["type"].ToString() == "hls" orderby u["quality"] select u["url"].ToString()).ToList()[0];
-                Url = HlsCheck(tempHlsUrl);
+                Url = await HlsCheck(tempHlsUrl);
 
-                if(Url != null)
+                if (Url != null)
                 {
                     OnHlsUrlGet?.Invoke(this, Url);
                     UrlParsedEvent.Set();
@@ -256,7 +256,8 @@ namespace srtransky
 
         private async void StartGetRtmp(JObject json)
         {
-            await Task.Run(() => {
+            await Task.Run(() =>
+            {
                 var rtmpUrl = (from u in (json["streaming_url_list"] as JArray) where u["type"].ToString() == "rtmp" orderby u["quality"] select u["url"].ToString()).ToList()[0];
                 var streamingKey = (from u in (json["streaming_url_list"] as JArray) where u["type"].ToString() == "rtmp" orderby u["quality"] select u["stream_name"].ToString()).ToList()[0];
                 Url = rtmpUrl;
@@ -268,16 +269,28 @@ namespace srtransky
             });
         }
 
-        private string HlsCheck(string hlsUrl)
+        private async Task<string> HlsCheck(string hlsUrl)
         {
-            bool isHls = false;
-            while (!isHls) {
-                var hlsString = HTTPGet(hlsUrl);
-                var re = new Regex(@"^.+\.ts", RegexOptions.Multiline);
-                if (re.IsMatch(hlsString))
+            var isHls = false;
+            var retryCount = Retries;
+            while (!isHls && retryCount > 0)
+            {
+                try
                 {
-                    isHls = true;
+                    var hlsString = HTTPGet(hlsUrl);
+                    var re = new Regex(@"^.+\.ts", RegexOptions.Multiline);
+                    if (re.IsMatch(hlsString))
+                    {
+                        isHls = true;
+                    }
                 }
+                catch (Exception e)
+                {
+                    Console.WriteLine("ERROR: " + e.ToString());
+                    Console.WriteLine("Try again...");
+                }
+                retryCount--;
+                await Task.Delay(100);
             }
             return hlsUrl;
         }
