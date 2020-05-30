@@ -22,7 +22,7 @@ namespace srtransky
         [Option('t', "threads", Required = false, HelpText = "Threads number of Minyami used to download video.", Default = 20)]
         public int Thread { get; set; }
 
-        [Option('r', "retries", Required = false, HelpText = "Retries count of Minyami", Default = 999)]
+        [Option('r', "retries", Required = false, HelpText = "Retries count.", Default = 999)]
         public int Retries { get; set; }
 
         [Option("rtmpdump", Required = false, HelpText = "Download with rtmpdump.", Default = false)]
