@@ -12,28 +12,26 @@ using System.Threading;
 namespace srtransky
 {
     public delegate void HlsUrlGetEventHandler(object sender, string hlsUrl);
-    public delegate void RtmpUrlGetEventHandler(object sender, string rtmpUrl, string streamingKey);
     class Downloader
     {
         const string UA = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/74.0.3729.169 Safari/537.36";
 
-        public string RoomName { get; }
+        private string RoomName;
         public string OutputFile { get; }
         public string Proxy { get; }
         public int Threads { get; }
         public int Retries { get; }
-        private bool UseRtmpdump { get; }
         private string BroadcastKey;
         private string BroadcastHost;
         private bool Running;
-        private string Url = null;
         private int RoomId;
-        private AutoResetEvent UrlParsedEvent = new AutoResetEvent(false);
+        private string HlsUrl = null;
+        private AutoResetEvent HlsParsedEvent = new AutoResetEvent(false);
         private WebSocket wsclient = null;
 
         public event HlsUrlGetEventHandler OnHlsUrlGet;
-        public event RtmpUrlGetEventHandler OnRtmpUrlGet;
-        public Downloader(string name, string outputFile, string proxy, int threads, int retries, bool useRtmpdump)
+
+        public Downloader(string name, string outputFile, string proxy, int threads, int retries)
         {
             RoomName = name;
             OutputFile = outputFile;
@@ -41,17 +39,16 @@ namespace srtransky
             Threads = threads;
             Retries = retries;
             Running = false;
-            UseRtmpdump = useRtmpdump;
         }
 
-        public string WaitForUrl()
+        public string WaitForHls()
         {
             Task.Run(() =>
             {
-                UrlParsedEvent.WaitOne();
+                HlsParsedEvent.WaitOne();
             }).Wait();
 
-            return Url;
+            return HlsUrl;
         }
 
         public string HTTPGet(string url)
@@ -101,7 +98,7 @@ namespace srtransky
                 {
                     Console.WriteLine("Init: Live broadcast.");
                     var streamingJson = GetStreamingUrl();
-                    StartGetUrl(streamingJson);
+                    StartGetHls(streamingJson);
                 }
 
                 Console.WriteLine("Init: Broadcast Key: " + BroadcastKey);
@@ -113,7 +110,6 @@ namespace srtransky
                 return;
             }
         }
-
 
         private JObject ParseRoomData()
         {
@@ -191,7 +187,7 @@ namespace srtransky
             WSSend("QUIT");
             wsclient?.Close();
 
-            UrlParsedEvent.Set();
+            HlsParsedEvent.Set();
         }
 
         private async void StartHeartBeat()
@@ -225,7 +221,7 @@ namespace srtransky
                         case 104:
                             Console.WriteLine("INFO: Live start!");
                             var json = GetStreamingUrl();
-                            StartGetUrl(json);
+                            StartGetHls(json);
                             break;
                         default:
                             Console.WriteLine("Type: " + msgType);
@@ -241,70 +237,16 @@ namespace srtransky
 
         private async void StartGetHls(JObject json)
         {
-            await Task.Run(async () =>
-            {
-                var tempHlsUrl = (from u in (json["streaming_url_list"] as JArray) where u["type"].ToString() == "hls" orderby u["quality"] select u["url"].ToString()).ToList()[0];
-                Url = await HlsCheck(tempHlsUrl);
-
-                if (Url != null)
-                {
-                    OnHlsUrlGet?.Invoke(this, Url);
-                    UrlParsedEvent.Set();
-                }
-            });
-        }
-
-        private async void StartGetRtmp(JObject json)
-        {
             await Task.Run(() =>
             {
-                var rtmpUrl = (from u in (json["streaming_url_list"] as JArray) where u["type"].ToString() == "rtmp" orderby u["quality"] select u["url"].ToString()).ToList()[0];
-                var streamingKey = (from u in (json["streaming_url_list"] as JArray) where u["type"].ToString() == "rtmp" orderby u["quality"] select u["stream_name"].ToString()).ToList()[0];
-                Url = rtmpUrl;
-                if (rtmpUrl != null)
+                HlsUrl = (from u in (json["streaming_url_list"] as JArray) where u["type"].ToString() == "hls" orderby u["quality"] select u["url"].ToString()).ToList()[0];
+
+                if (HlsUrl != null)
                 {
-                    OnRtmpUrlGet?.Invoke(this, rtmpUrl, streamingKey);
-                    UrlParsedEvent.Set();
+                    OnHlsUrlGet?.Invoke(this, HlsUrl);
+                    HlsParsedEvent.Set();
                 }
             });
-        }
-
-        private async Task<string> HlsCheck(string hlsUrl)
-        {
-            var isHls = false;
-            var retryCount = Retries;
-            while (!isHls && retryCount > 0)
-            {
-                try
-                {
-                    var hlsString = HTTPGet(hlsUrl);
-                    var re = new Regex(@"^.+\.ts", RegexOptions.Multiline);
-                    if (re.IsMatch(hlsString))
-                    {
-                        isHls = true;
-                    }
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine("ERROR: " + e.ToString());
-                    Console.WriteLine("Try again...");
-                }
-                retryCount--;
-                await Task.Delay(100);
-            }
-            return hlsUrl;
-        }
-
-        private void StartGetUrl(JObject json)
-        {
-            if (UseRtmpdump)
-            {
-                StartGetRtmp(json);
-            }
-            else
-            {
-                StartGetHls(json);
-            }
         }
     }
 }
